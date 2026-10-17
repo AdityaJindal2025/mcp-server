@@ -86,6 +86,28 @@ describe('loadConfig', () => {
     expect(c.http.host).toBe('::1');
   });
 
+  it('resolves the HTTP port as --port > MCP_HTTP_PORT > PORT > 3333 (Railway sets PORT)', () => {
+    expect(loadConfig({}).http.port).toBe(3333);
+    expect(loadConfig({ PORT: '8080' }).http.port).toBe(8080);
+    expect(loadConfig({ PORT: '8080', MCP_HTTP_PORT: '4000' }).http.port).toBe(4000);
+    expect(loadConfig({ PORT: '8080', MCP_HTTP_PORT: '4000' }, { port: '5000' }).http.port).toBe(
+      5000,
+    );
+    expect(loadConfig({ PORT: '' }).http.port).toBe(3333);
+    expect(() => loadConfig({ PORT: 'eighty' })).toThrow(/PORT: expected an integer/);
+  });
+
+  it('reads GOOGLE_TOKEN_JSON without exposing it in errors', () => {
+    expect(loadConfig({}).google.tokenJson).toBeUndefined();
+    expect(loadConfig({ GOOGLE_TOKEN_JSON: ' abc== ' }).google.tokenJson).toBe('abc==');
+    try {
+      loadConfig({ GOOGLE_TOKEN_JSON: 'super-secret-token', EMAIL_DRY_RUN: 'maybe' });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as Error).message).not.toContain('super-secret-token');
+    }
+  });
+
   it('reports every invalid value', () => {
     try {
       loadConfig({

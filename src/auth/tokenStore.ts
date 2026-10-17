@@ -89,3 +89,57 @@ export class FileTokenStore implements TokenStore {
     }
   }
 }
+
+export const TOKEN_JSON_ENV = 'GOOGLE_TOKEN_JSON';
+
+/**
+ * Read-only store backed by the GOOGLE_TOKEN_JSON environment variable, for
+ * platforms without secret files (e.g. Railway). Accepts the token file's
+ * contents as raw JSON or base64. Error messages name the variable but never
+ * echo its value.
+ */
+export class EnvTokenStore implements TokenStore {
+  readonly location = `${TOKEN_JSON_ENV} environment variable`;
+
+  constructor(private readonly value: string) {}
+
+  async read(): Promise<StoredToken> {
+    const raw = this.value.trim();
+    const text = raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      throw new TokenFileError(
+        'malformed',
+        `The ${this.location} is not valid JSON or base64-encoded JSON.`,
+      );
+    }
+    const parsed = StoredTokenSchema.safeParse(json);
+    if (!parsed.success) {
+      throw new TokenFileError(
+        'malformed',
+        `The token in the ${this.location} is missing required fields.`,
+      );
+    }
+    return parsed.data;
+  }
+
+  async write(): Promise<void> {
+    throw new Error(
+      `Cannot save a token to the ${this.location}. Run \`auth\` on a workstation and update the variable instead.`,
+    );
+  }
+
+  async version(): Promise<string | undefined> {
+    // The environment can't change without a restart.
+    return 'env';
+  }
+}
+
+/** GOOGLE_TOKEN_JSON wins over GOOGLE_TOKEN_PATH when both are set. */
+export function tokenStoreFor(google: { tokenPath: string; tokenJson?: string }): TokenStore {
+  return google.tokenJson
+    ? new EnvTokenStore(google.tokenJson)
+    : new FileTokenStore(google.tokenPath);
+}

@@ -5,7 +5,13 @@ import { CodeChallengeMethod, OAuth2Client } from 'google-auth-library';
 import { requiredScopes, type Config } from '../config.js';
 import { googleErrorInfo } from '../lib/errors.js';
 import type { Writer } from '../lib/logger.js';
-import { FileTokenStore, TokenFileError, type TokenStore } from './tokenStore.js';
+import {
+  FileTokenStore,
+  TOKEN_JSON_ENV,
+  TokenFileError,
+  tokenStoreFor,
+  type TokenStore,
+} from './tokenStore.js';
 
 const CALLBACK_PATH = '/oauth2callback';
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -175,6 +181,11 @@ export async function runAuthCli(opts: AuthCliOptions): Promise<void> {
     if (process.platform === 'win32') {
       say('Note: on Windows the token file is protected by your user profile permissions only.');
     }
+    if (config.google.tokenJson) {
+      say(
+        `Note: ${TOKEN_JSON_ENV} is set and takes precedence over this file. Update it with the new token (see docs/deploymentPlan.md, step 1).`,
+      );
+    }
   } finally {
     server.close();
     server.closeAllConnections();
@@ -189,7 +200,7 @@ export async function runAuthStatus(opts: {
 }): Promise<boolean> {
   const out = opts.out ?? process.stderr;
   const say = (line: string) => out.write(`${line}\n`);
-  const store = opts.store ?? new FileTokenStore(opts.config.google.tokenPath);
+  const store = opts.store ?? tokenStoreFor(opts.config.google);
   let token;
   try {
     token = await store.read();

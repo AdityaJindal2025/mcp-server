@@ -92,6 +92,7 @@ npx gmail-docs-mcp auth           # or: node dist/index.js auth
 - A browser opens the Google consent screen. If it doesn't open (for example on a headless machine), copy the printed URL into any browser.
 - Sign in, **leave every permission ticked**, and you're done. The terminal prints `Authenticated as you@example.com. Token saved to …`.
 - The token file (`GOOGLE_TOKEN_PATH`, default `~/.config/gmail-docs-mcp/token.json`) is written with `0600` permissions. It holds the refresh token plus the OAuth client ID and secret (Google's `authorized_user` format), so the server only needs `GOOGLE_TOKEN_PATH` at runtime.
+- On platforms without secret files (Railway, most PaaS), put the token file's contents in **`GOOGLE_TOKEN_JSON`** instead, as raw or base64 JSON: `base64 -i ~/.config/gmail-docs-mcp/token.json | tr -d '\n'`. It takes precedence over `GOOGLE_TOKEN_PATH`, is read-only, and its value never appears in logs or error messages.
 - Check the stored sign-in at any time:
   ```bash
   npx gmail-docs-mcp auth --status
@@ -400,11 +401,15 @@ docker run --rm -p 3333:3333 \
 
 The image binds `0.0.0.0`, so it refuses to start without `MCP_HTTP_BEARER_TOKEN`. It runs as the non-root `node` user and has a `/healthz` health check.
 
+### Railway
+
+[`railway.json`](railway.json) builds the Dockerfile, runs one replica and health-checks `/healthz`. Set `MCP_HTTP_BEARER_TOKEN` and `GOOGLE_TOKEN_JSON` as sealed variables; the server listens on Railway's `PORT` automatically. Full steps, verification and operations: [docs/deploymentPlan.md](docs/deploymentPlan.md).
+
 ---
 
 ## Configuration reference
 
-All configuration is through environment variables (a `.env` file in the working directory is loaded automatically). CLI flags `--transport`, `--host` and `--port` override the matching variables. See [.env.example](.env.example) for the full list with comments. Invalid values stop the server with exit code `2` and a message naming each bad variable.
+All configuration is through environment variables (a `.env` file in the working directory is loaded automatically). CLI flags `--transport`, `--host` and `--port` override the matching variables. The HTTP port is resolved as `--port`, then `MCP_HTTP_PORT`, then `PORT` (set by Railway and similar platforms), then `3333`. See [.env.example](.env.example) for the full list with comments. Invalid values stop the server with exit code `2` and a message naming each bad variable.
 
 ```text
 gmail-docs-mcp auth                          One-time Google sign-in

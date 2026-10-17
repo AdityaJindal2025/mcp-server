@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { McpServer, type McpServerFactory } from '@modelcontextprotocol/server';
 import { createGoogleClient, type GoogleClient } from './auth/googleClient.js';
-import { FileTokenStore } from './auth/tokenStore.js';
+import { tokenStoreFor } from './auth/tokenStore.js';
 import type { Config } from './config.js';
 import { FileAudit, StderrAudit, type AuditSink } from './lib/audit.js';
 import { IdempotencyCache } from './lib/idempotency.js';
@@ -35,9 +35,7 @@ export function createDeps(config: Config, overrides: DepsOverrides = {}): Deps 
   return {
     config,
     logger,
-    google:
-      overrides.google ??
-      createGoogleClient({ store: new FileTokenStore(config.google.tokenPath), config }),
+    google: overrides.google ?? createGoogleClient({ store: tokenStoreFor(config.google), config }),
     audit:
       overrides.audit ??
       (config.auditLogPath ? new FileAudit(config.auditLogPath, logger) : new StderrAudit(logger)),

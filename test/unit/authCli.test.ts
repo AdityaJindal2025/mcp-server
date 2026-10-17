@@ -186,6 +186,27 @@ describe('runAuthStatus', () => {
     expect(out.lines.join('')).toMatch(/No Google token found/);
   });
 
+  it('checks GOOGLE_TOKEN_JSON when it is set (what the server will use)', async () => {
+    const value = Buffer.from(
+      JSON.stringify({
+        type: 'authorized_user',
+        client_id: 'cid',
+        client_secret: 'cs',
+        refresh_token: 'rt',
+        scope: requiredScopes({ enableDrafts: false }).join(' '),
+        account_email: 'env@example.com',
+      }),
+    ).toString('base64');
+    nock('https://oauth2.googleapis.com')
+      .post('/token')
+      .reply(200, { access_token: 'x', expires_in: 3600 });
+    const out = new LogSink();
+    expect(await runAuthStatus({ config: config({ GOOGLE_TOKEN_JSON: value }), out })).toBe(true);
+    expect(out.lines.join('')).toMatch(
+      /Token file: GOOGLE_TOKEN_JSON environment variable[\s\S]*env@example.com/,
+    );
+  });
+
   it('reports account, scopes, missing scopes and refresh health', async () => {
     await new FileTokenStore(tokenPath).write({
       type: 'authorized_user',

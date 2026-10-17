@@ -39,6 +39,21 @@ const int = (def: number, min: number, max: number) =>
       return n;
     });
 
+/** Like `int`, but `undefined` when unset, so callers can fall back to another variable. */
+const optInt = (min: number, max: number) =>
+  z
+    .string()
+    .optional()
+    .transform((v, ctx) => {
+      if (v === undefined || v.trim() === '') return undefined;
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < min || n > max) {
+        ctx.addIssue({ code: 'custom', message: `expected an integer between ${min} and ${max}` });
+        return z.NEVER;
+      }
+      return n;
+    });
+
 const list = (lower = false) =>
   z
     .string()
@@ -70,6 +85,8 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_ID: str(),
   GOOGLE_CLIENT_SECRET: str(),
   GOOGLE_TOKEN_PATH: str(),
+  // Token file contents (raw or base64 JSON) for hosts without secret files, e.g. Railway.
+  GOOGLE_TOKEN_JSON: str(),
 
   MCP_TRANSPORT: z
     .string()
@@ -77,7 +94,9 @@ const EnvSchema = z.object({
     .transform((v) => (v && v.trim() ? v.trim().toLowerCase() : 'stdio'))
     .pipe(z.enum(['stdio', 'http'])),
   MCP_HTTP_HOST: str(),
-  MCP_HTTP_PORT: int(3333, 0, 65535),
+  MCP_HTTP_PORT: optInt(0, 65535),
+  // Injected by platforms such as Railway; used when MCP_HTTP_PORT is unset.
+  PORT: optInt(0, 65535),
   MCP_HTTP_BEARER_TOKEN: str(),
   MCP_HTTP_ALLOWED_ORIGINS: list(),
   MCP_HTTP_ALLOWED_HOSTS: list(true),
@@ -105,7 +124,14 @@ const EnvSchema = z.object({
 });
 
 export interface Config {
-  google: { clientId?: string; clientSecret?: string; tokenPath: string; timeoutMs: number };
+  google: {
+    clientId?: string;
+    clientSecret?: string;
+    tokenPath: string;
+    /** When set, takes precedence over `tokenPath`. Never log this value. */
+    tokenJson?: string;
+    timeoutMs: number;
+  };
   transport: 'stdio' | 'http';
   http: {
     host: string;
@@ -174,12 +200,14 @@ export function loadConfig(
       ...(e.GOOGLE_CLIENT_ID && { clientId: e.GOOGLE_CLIENT_ID }),
       ...(e.GOOGLE_CLIENT_SECRET && { clientSecret: e.GOOGLE_CLIENT_SECRET }),
       tokenPath: path.resolve(expandHome(e.GOOGLE_TOKEN_PATH ?? defaultTokenPath())),
+      ...(e.GOOGLE_TOKEN_JSON && { tokenJson: e.GOOGLE_TOKEN_JSON }),
       timeoutMs: e.GOOGLE_TIMEOUT_MS,
     },
     transport: e.MCP_TRANSPORT,
     http: {
       host: e.MCP_HTTP_HOST ?? '127.0.0.1',
-      port: e.MCP_HTTP_PORT,
+      // --port (mapped onto MCP_HTTP_PORT above) > MCP_HTTP_PORT > PORT > 3333.
+      port: e.MCP_HTTP_PORT ?? e.PORT ?? 3333,
       ...(e.MCP_HTTP_BEARER_TOKEN && { bearerToken: e.MCP_HTTP_BEARER_TOKEN }),
       allowedOrigins: e.MCP_HTTP_ALLOWED_ORIGINS,
       allowedHosts: e.MCP_HTTP_ALLOWED_HOSTS,

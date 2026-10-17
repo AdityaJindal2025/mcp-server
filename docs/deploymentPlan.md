@@ -4,7 +4,7 @@
 >
 > **Scope:** one Railway service, one Google account (v1 security model), bearer-token auth. This resolves open question 3 in the [problem statement](problemStatement.md) (hosting location) in favour of Railway.
 >
-> **Status:** plan only. §3 lists two small code changes to make before the first deploy.
+> **Status:** the code changes in §3 (C1, C2, C3) are implemented and tested. Next: §4 prerequisites and the §12 rollout checklist.
 
 ---
 
@@ -68,11 +68,15 @@ Today the server only reads a token **file** (`GOOGLE_TOKEN_PATH`). Add:
 
 The refresh token doesn't rotate during normal use (Google returns a new access token, not a new refresh token), so a read-only store is enough.
 
+**Implemented:** `EnvTokenStore` and `tokenStoreFor()` in [src/auth/tokenStore.ts](../src/auth/tokenStore.ts). `auth --status` checks whichever store the server will use, and `auth` warns when `GOOGLE_TOKEN_JSON` would override the file it just wrote. Tests: [envTokenStore.test.ts](../test/unit/envTokenStore.test.ts), [envToken.test.ts](../test/integration/envToken.test.ts).
+
 ### C2. Honour Railway's `PORT` (recommended)
 
 Railway injects `PORT` and routes the public domain to it by default. Change `loadConfig` so the HTTP port is resolved as `--port` flag, then `MCP_HTTP_PORT`, then `PORT`, then `3333`. Add a unit test for the order.
 
 Without C2, it still works: set `MCP_HTTP_PORT=3333` and choose target port **3333** when generating the domain (§5, step 6).
+
+**Implemented:** `optInt` for `MCP_HTTP_PORT` and `PORT` in [src/config.ts](../src/config.ts), covered by a unit test of the resolution order.
 
 ### C3. Add `railway.json` (config as code)
 
@@ -93,7 +97,9 @@ Without C2, it still works: set `MCP_HTTP_PORT=3333` and choose target port **33
 }
 ```
 
-Railway ignores the Dockerfile `HEALTHCHECK`; `healthcheckPath` is what gates a deploy going live. Check the key names against Railway's current config-as-code reference when adding the file.
+Railway ignores the Dockerfile `HEALTHCHECK`; `healthcheckPath` is what gates a deploy going live.
+
+**Implemented:** [railway.json](../railway.json). All keys and values were validated against <https://railway.com/railway.schema.json> on 2026-10-17.
 
 **Exit criteria for §3:** `npm run lint && npm run typecheck && npm test` green, the snapshot unchanged (no tool contract change), and `docker build .` succeeds in CI.
 
@@ -150,7 +156,6 @@ Service → **Variables**. Mark the secrets as **sealed** (their values are hidd
 | `DOCS_ALLOWED_IDS`       | IDs of the docs agents may touch, e.g. `1AbC...yourDocId`                                  |        |
 | `EMAIL_DRY_RUN`          | `true` for the first verification, then `false`                                            |        |
 | `EMAIL_MAX_PER_HOUR`     | e.g. `10` (lower than the local default)                                                   |        |
-| `MCP_HTTP_PORT`          | `3333`, **only if C2 is not done**                                                         |        |
 | `LOG_LEVEL`              | `info`                                                                                     |        |
 
 Already set by the Dockerfile; leave them alone: `MCP_TRANSPORT=http`, `MCP_HTTP_HOST=0.0.0.0`, `NODE_ENV=production`.
@@ -322,7 +327,7 @@ If a browser-based client sends an `Origin` header, add that origin to `MCP_HTTP
 
 ## 12. Rollout checklist
 
-1. [ ] Implement C1 (+ tests), C2 (+ test), C3; CI green.
+1. [x] Implement C1 (+ tests), C2 (+ test), C3; CI green.
 2. [ ] Publish the Google OAuth app; re-run `auth`; `auth --status` OK.
 3. [ ] Create the Railway project/service from the repo.
 4. [ ] Set variables (§5 step 3) with `EMAIL_DRY_RUN=true`.
