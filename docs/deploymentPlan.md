@@ -147,7 +147,7 @@ Service → **Variables**. Mark the secrets as **sealed** (their values are hidd
 | `GOOGLE_TOKEN_JSON`      | base64 string from step 1 (needs C1)                                                       | ✅     |
 | `MCP_HTTP_ALLOWED_HOSTS` | `<service>.up.railway.app` (set after step 6; add the custom domain later)                 |        |
 | `EMAIL_ALLOWED_DOMAINS`  | e.g. `gmail.com,yourcompany.com`. **Strongly recommended** for a network-reachable server. |        |
-| `DOCS_ALLOWED_IDS`       | IDs of the docs agents may touch, e.g. `1AbC...yourDocId`                                 |        |
+| `DOCS_ALLOWED_IDS`       | IDs of the docs agents may touch, e.g. `1AbC...yourDocId`                                  |        |
 | `EMAIL_DRY_RUN`          | `true` for the first verification, then `false`                                            |        |
 | `EMAIL_MAX_PER_HOUR`     | e.g. `10` (lower than the local default)                                                   |        |
 | `MCP_HTTP_PORT`          | `3333`, **only if C2 is not done**                                                         |        |
