@@ -1,0 +1,63 @@
+{
+  "name": "gmail-docs-mcp",
+  "version": "0.1.0",
+  "description": "Self-hostable MCP server that lets any MCP-compatible agent send Gmail and append to Google Docs.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "gmail-docs-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/postbuild.mjs",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:live": "LIVE_TESTS=1 vitest run test/live",
+    "inspector": "npx @modelcontextprotocol/inspector node dist/index.js",
+    "docs:tools": "tsx scripts/gen-tool-docs.ts && prettier --write README.md"
+  },
+  "dependencies": {
+    "@googleapis/docs": "14.1.1",
+    "@googleapis/gmail": "22.0.2",
+    "@modelcontextprotocol/node": "2.1.1",
+    "@modelcontextprotocol/server": "2.3.1",
+    "google-auth-library": "11.2.0",
+    "html-to-text": "10.0.1",
+    "open": "11.0.4",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@modelcontextprotocol/client": "2.3.1",
+    "@types/html-to-text": "9.0.4",
+    "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "5.0.3",
+    "eslint": "10.12.0",
+    "nock": "14.0.10",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vitest": "5.0.3"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "gmail",
+    "google-docs",
+    "mcp-server"
+  ]
+}

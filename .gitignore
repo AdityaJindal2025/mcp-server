@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.env
+token.json
+*.token.json
+*.jsonl
+.DS_Store
