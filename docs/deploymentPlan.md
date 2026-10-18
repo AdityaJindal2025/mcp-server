@@ -15,7 +15,7 @@
         │  HTTPS POST /mcp   Authorization: Bearer <MCP_HTTP_BEARER_TOKEN>
         ▼
  Railway edge (TLS, *.up.railway.app or custom domain)
-        │  HTTP → container port 3333
+        │  HTTP → container $PORT (Railway sets it, e.g. 8080)
         ▼
  Railway service "gmail-docs-mcp"   (1 replica, Dockerfile build)
    node dist/index.js --transport http
@@ -74,7 +74,7 @@ The refresh token doesn't rotate during normal use (Google returns a new access 
 
 Railway injects `PORT` and routes the public domain to it by default. Change `loadConfig` so the HTTP port is resolved as `--port` flag, then `MCP_HTTP_PORT`, then `PORT`, then `3333`. Add a unit test for the order.
 
-Without C2, it still works: set `MCP_HTTP_PORT=3333` and choose target port **3333** when generating the domain (§5, step 6).
+With C2 in place, don't set `MCP_HTTP_PORT` on Railway: it would override `PORT`. The domain's target port must equal the port in the startup log line (§5, step 5).
 
 **Implemented:** `optInt` for `MCP_HTTP_PORT` and `PORT` in [src/config.ts](../src/config.ts), covered by a unit test of the resolution order.
 
@@ -183,7 +183,7 @@ Click **Deploy** (or push to the deploy branch / run `railway up`). In the deplo
 {
   "level": "info",
   "msg": "gmail-docs-mcp listening on http",
-  "url": "http://0.0.0.0:3333/mcp",
+  "url": "http://0.0.0.0:8080/mcp",
   "auth": "bearer"
 }
 ```
@@ -192,7 +192,7 @@ and a passing `/healthz` health check.
 
 ### Step 6: Public domain
 
-Service → **Settings → Networking → Generate Domain**. If C2 isn't done, set the target port to **3333**. Then:
+Service → **Settings → Networking → Generate Domain**. Set the target port to the port in the startup log line from step 5 (`"url":"http://0.0.0.0:<port>/mcp"`, typically **8080**). If the domain already exists, edit its target port with the pencil icon. Then:
 
 1. Copy the domain (e.g. `gmail-docs-mcp-production.up.railway.app`).
 2. Set `MCP_HTTP_ALLOWED_HOSTS` to it (step 3) and let it redeploy.
@@ -301,19 +301,19 @@ If a browser-based client sends an `Origin` header, add that origin to `MCP_HTTP
 
 ## 10. Troubleshooting
 
-| Symptom                                                                              | Likely cause                                                                                                            | Fix                                                                                                                             |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Deploy fails, log says "Refusing to listen on 0.0.0.0 without MCP_HTTP_BEARER_TOKEN" | Variable missing                                                                                                        | Set `MCP_HTTP_BEARER_TOKEN` (step 3).                                                                                           |
-| Deploy fails with "Invalid configuration"                                            | A variable has a bad value (exit code 2)                                                                                | The log names the variable; fix it.                                                                                             |
-| `502 Application failed to respond` on every URL                                     | Server listening on a different port than Railway routes to (e.g. `MCP_HTTP_PORT` set as a variable, overriding `PORT`) | Remove `MCP_HTTP_PORT` from the service variables (the Dockerfile no longer sets it), or set the domain's target port to match. |
-| Health check times out                                                               | Port mismatch                                                                                                           | Do C2, or set `MCP_HTTP_PORT=3333` and the domain target port to 3333.                                                          |
-| `403 Host not allowed`                                                               | `MCP_HTTP_ALLOWED_HOSTS` doesn't include the domain you're calling                                                      | Add the exact hostname (no scheme, no path).                                                                                    |
-| `403 Origin not allowed`                                                             | A browser client sends `Origin`                                                                                         | Add it to `MCP_HTTP_ALLOWED_ORIGINS`.                                                                                           |
-| `401` with the right token                                                           | Header copied with quotes, whitespace, or the wrong scheme                                                              | Send exactly `Authorization: Bearer <token>`.                                                                                   |
-| Tools return "Not signed in to Google"                                               | `GOOGLE_TOKEN_JSON` unset or C1 not deployed                                                                            | Set it; confirm the deployed commit includes C1.                                                                                |
-| Tools return "token … missing required fields" / "not valid JSON"                    | Truncated or wrapped base64                                                                                             | Re-encode with `tr -d '\n'` (macOS) or `-w0` (Linux).                                                                           |
-| Sign-in expires after ~7 days                                                        | OAuth app still in Testing                                                                                              | Publish the app (R7), re-auth, update the variable.                                                                             |
-| `405` on `GET /mcp`                                                                  | Expected: the endpoint is stateless and POST-only                                                                       | Nothing to fix.                                                                                                                 |
+| Symptom                                                                              | Likely cause                                                                                                                                        | Fix                                                                                                                                               |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deploy fails, log says "Refusing to listen on 0.0.0.0 without MCP_HTTP_BEARER_TOKEN" | Variable missing                                                                                                                                    | Set `MCP_HTTP_BEARER_TOKEN` (step 3).                                                                                                             |
+| Deploy fails with "Invalid configuration"                                            | A variable has a bad value (exit code 2)                                                                                                            | The log names the variable; fix it.                                                                                                               |
+| `502 Application failed to respond` on every URL                                     | The domain's target port doesn't match the port the server listens on (check the startup log line), or an `MCP_HTTP_PORT` variable overrides `PORT` | Settings → Networking → edit the domain's target port to the logged port (usually 8080); remove any `MCP_HTTP_PORT` variable. No redeploy needed. |
+| Health check times out                                                               | Port mismatch                                                                                                                                       | Make the domain's target port match the startup log's port (usually 8080), and remove any `MCP_HTTP_PORT` variable.                               |
+| `403 Host not allowed`                                                               | `MCP_HTTP_ALLOWED_HOSTS` doesn't include the domain you're calling                                                                                  | Add the exact hostname (no scheme, no path).                                                                                                      |
+| `403 Origin not allowed`                                                             | A browser client sends `Origin`                                                                                                                     | Add it to `MCP_HTTP_ALLOWED_ORIGINS`.                                                                                                             |
+| `401` with the right token                                                           | Header copied with quotes, whitespace, or the wrong scheme                                                                                          | Send exactly `Authorization: Bearer <token>`.                                                                                                     |
+| Tools return "Not signed in to Google"                                               | `GOOGLE_TOKEN_JSON` unset or C1 not deployed                                                                                                        | Set it; confirm the deployed commit includes C1.                                                                                                  |
+| Tools return "token … missing required fields" / "not valid JSON"                    | Truncated or wrapped base64                                                                                                                         | Re-encode with `tr -d '\n'` (macOS) or `-w0` (Linux).                                                                                             |
+| Sign-in expires after ~7 days                                                        | OAuth app still in Testing                                                                                                                          | Publish the app (R7), re-auth, update the variable.                                                                                               |
+| `405` on `GET /mcp`                                                                  | Expected: the endpoint is stateless and POST-only                                                                                                   | Nothing to fix.                                                                                                                                   |
 
 ---
 
